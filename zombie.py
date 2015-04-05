@@ -6,6 +6,7 @@ def end_game():
 	pad.getch()
 	curses.nocbreak()
 	curses.echo()
+	curses.curs_set(1)
 	curses.endwin()
 	sys.exit(0)
 
@@ -21,6 +22,8 @@ class Agent:
 		self.infection_odds = 1 # out of 100. odds a zombie successfully infects
 
 		self.torn_apart = 3 # how many zombies need to be direct neighbors to make a human die
+		self.torn_apart_radius = 1 # how close a zombie has to be to tear up a human
+		self.torn_apart_odds = 30 # odds a human will get torn apart if it's possible
 
 		# zombie traits
 		self.overwhelmed_limit = 5 # how many human neighbors it takes to kill a zombie
@@ -31,6 +34,8 @@ class Agent:
 		deltax = 0
 
 		if self.status == 'human':
+			torn_apart_neighbors = 0 # number of zombies close enough to tear up the numan
+			
 			# look for zombies
 			for searchy in range(-self.sightline,self.sightline+1):
 				for searchx in range(-self.sightline,self.sightline+1):
@@ -41,8 +46,9 @@ class Agent:
 							if infection_test < self.infection_odds:
 								self.status = 'zombie'
 
-						# check if he gets torn apart instead
-
+						# check if the zombie is close enough to tear human apart
+						if abs(searchy) <= abs(self.overwhelmed_radius) and abs(searchx) <= abs(self.overwhelmed_radius):
+							torn_apart_neighbors += 1
 
 						# figure out where to run away
 						if searchy < 0:	#if it's somewhere above
@@ -52,21 +58,28 @@ class Agent:
 						if searchx < 0: #if it's to the left
 							deltax += 1
 						elif searchx > 0: #if it's somewhere to the right
-									deltax -= 1
-						# figure out which way to run:
-						if deltay > 0:
-							self.location[0] += 1
-						elif deltay < 0:
-							self.location[0] -= 1
+							deltax -= 1
+			# check if human gets torn apart
+			if torn_apart_neighbors >= self.torn_apart:
+				torn_apart_test = random.randint(0,100)
+				if torn_apart_test < self.torn_apart_odds:
+					self.status = 'dead human'
 
-						if deltax > 0:
-							self.location[1] += 1
-						elif deltax < 0:
-							self.location[1] -= 1
+			# if they're still alive, figure out which way to run:
+			if self.status == 'human':
+				if deltay > 0:
+					self.location[0] += 1
+				elif deltay < 0:
+					self.location[0] -= 1
 
-			randomizer_test = random.randint(0,100)
-			if randomizer_test < randomizer_odds:
-				self.location[random.randint(0,1)] += random.randint(-1,1)
+				if deltax > 0:
+					self.location[1] += 1
+				elif deltax < 0:
+					self.location[1] -= 1
+
+				randomizer_test = random.randint(0,100)
+				if randomizer_test < randomizer_odds:
+					self.location[random.randint(0,1)] += random.randint(-1,1)
 
 		elif self.status == 'zombie':
 			neighbors = 0
@@ -177,7 +190,7 @@ if __name__ == '__main__':
 		height = int(sys.argv[2])
 
 	occupied_odds = 40
-	zombie_odds = 90
+	zombie_odds = 10
 
 	move_odds = 90 #odds that a zombie will move
 
@@ -191,7 +204,8 @@ if __name__ == '__main__':
 	curses.start_color()	# turn on color
 	curses.init_pair(1, 7, 7) # human color pair
 	curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_GREEN) # zombie color pair
-	curses.init_pair(3, curses.COLOR_BLACK, 10) # zombie color pair
+	curses.init_pair(3, curses.COLOR_BLACK, 10) # dead zombie
+	curses.init_pair(4, curses.COLOR_BLACK, 15) # dead human
 	curses.noecho()  # don't print keyboard output to screen
 	curses.cbreak()  # react to keypresses without waiting for 'enter'
 	curses.curs_set(0) # no blinking cursor
