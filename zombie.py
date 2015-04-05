@@ -26,6 +26,7 @@ class Agent:
 		self.torn_apart_odds = 30 # odds a human will get torn apart if it's possible
 
 		# zombie traits
+		self.speed = 1 # max squares a zombie can move in one turn
 		self.overwhelmed_limit = 5 # how many human neighbors it takes to kill a zombie
 		self.overwhelmed_radius = 1 # how far from a zombie a human neighbor can be
 
@@ -38,8 +39,18 @@ class Agent:
 			
 			# look for zombies
 			for searchy in range(-self.sightline,self.sightline+1):
+				targety = self.location[0] + searchy
+				if targety < 0:
+					targety += height
+				elif targety > height - 1:
+					targety -= height
 				for searchx in range(-self.sightline,self.sightline+1):
-					if [self.location[0] + searchy,self.location[1] + searchx, 2] in locations: #zombie
+					targetx = self.location[1] + searchx
+					if targetx < 0:
+						targetx += width
+					elif targetx > width - 1:
+						targetx -= width
+					if [targety,targetx, 2] in locations: #zombie
 						# check if it's close enough for infection
 						if abs(searchy) <= abs(self.infection_proximity) and abs(searchx) <= abs(self.infection_proximity):
 							infection_test = random.randint(0,100)
@@ -92,8 +103,8 @@ class Agent:
 			else:
 				move_test = random.randint(0,100) #should it randomly move?
 				if move_test < move_odds:
-					self.location[0] += random.randint(-1,1)
-					self.location[1] += random.randint(-1,1)
+					self.location[0] += random.randint(-self.speed,self.speed+1)
+					self.location[1] += random.randint(--self.speed,self.speed+1)
 
 		#wraparound
 		if self.location[0] < 0:
@@ -111,6 +122,9 @@ class Agent:
 			
 
 def init_game(width, height, occupied_odds, zombie_odds):
+	init_zombies = 0
+	init_humans = 0 #starting pops
+
 	# randomize the first population
 	for y in range(0,height):
 		for x in range(0,width):
@@ -119,15 +133,19 @@ def init_game(width, height, occupied_odds, zombie_odds):
 				zombie_test = random.randint(0,100)
 				if zombie_test < zombie_odds:
 					agent_type = "zombie"
+					init_zombies += 1
 				else:
 					agent_type = "human"
+					init_humans += 1
 
 				current.append(Agent(agent_type,y,x))
-	return current
+	return [current,init_zombies,init_humans]
 
 def print_pop(population, height, width):
-	zombiepop = 0
-	humanpop = 0
+	zombies = 0
+	deadzombies = 0
+	humans = 0
+	deadhumans = 0
 
 	# fill everything in with periods
 	for y in range(0,height):
@@ -143,14 +161,16 @@ def print_pop(population, height, width):
 	for agent in population:
 		if agent.status == 'human':
 			colorpair = 1
-			humanpop += 1
+			humans += 1
 		elif agent.status == 'zombie':
 			colorpair = 2
-			zombiepop += 1
+			zombies += 1
 		elif agent.status == 'dead zombie':
 			colorpair = 3
+			deadzombies += 1
 		elif agent.status == 'dead human':
 			colorpair = 4
+			deadhumans += 1
 		locations.append([agent.location[0],agent.location[1],colorpair])
 
 	# parse the grid to print it
@@ -163,13 +183,19 @@ def print_pop(population, height, width):
 	pad.refresh(0,0, 2,2, myscreen.getmaxyx()[0]-1,myscreen.getmaxyx()[1]-1)
 
 	# print scores
+	turned = init_humans - humans - deadhumans
+
 	scorepad.clear()
-	scorepad.addstr(1,1, "Humans: %d" % humanpop)
-	scorepad.addstr(2,1, "Zombies: %d" % zombiepop)
+	scorepad.addstr(1,1, "Humans: %d alive" % humans)
+	scorepad.addstr(2,3, "%d dead" % deadhumans)
+	scorepad.addstr(3,3, "%d turned to zombies" % turned)
+
+	scorepad.addstr(4,1, "Zombies: %d" % zombies)
+	scorepad.addstr(5,3, "%d dead" % deadzombies)
 	scorepad.refresh(0,0, 2,width+1, myscreen.getmaxyx()[0]-1,myscreen.getmaxyx()[1]-1)
 	
 	# If it's over:
-	if zombiepop == 0 or humanpop == 0:
+	if zombies == 0 or humans == 0:
 		end_game()
 	else:
 		return locations
@@ -186,8 +212,8 @@ if __name__ == '__main__':
 		width = 20
 		height = 20
 	else:
-		width = int(sys.argv[1])
-		height = int(sys.argv[2])
+		height = int(sys.argv[1])
+		width = int(sys.argv[2])
 
 	occupied_odds = 40
 	zombie_odds = 10
@@ -200,7 +226,7 @@ if __name__ == '__main__':
 	locations = []
 	myscreen = curses.initscr()	#initialize the window
 	pad = curses.newpad(height, width)	# new pad
-	scorepad = curses.newpad(4,20)
+	scorepad = curses.newpad(10,25) # scoreboard
 	curses.start_color()	# turn on color
 	curses.init_pair(1, 7, 7) # human color pair
 	curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_GREEN) # zombie color pair
@@ -210,7 +236,10 @@ if __name__ == '__main__':
 	curses.cbreak()  # react to keypresses without waiting for 'enter'
 	curses.curs_set(0) # no blinking cursor
 
-	current = init_game(width, height, occupied_odds, zombie_odds)
+	initialize = init_game(width, height, occupied_odds, zombie_odds)
+	current = initialize[0]
+	init_zombies = int(initialize[1])
+	init_humans = int(initialize[2])
 
 	pause = ''
 	while pause != "x":
