@@ -2,6 +2,13 @@ import curses
 import random
 import sys
 
+def end_game():
+	pad.getch()
+	curses.nocbreak()
+	curses.echo()
+	curses.endwin()
+	sys.exit(0)
+
 class Agent:
 	def __init__(self,status,y,x):
 		self.status = status
@@ -10,19 +17,34 @@ class Agent:
 		# human traits
 		self.sightline = 3
 
+		self.infection_proximity = 1 # how close a zombie has to be to infect a human
+		self.infection_odds = 1 # out of 100. odds a zombie successfully infects
+
+		self.torn_apart = 3 # how many zombies need to be direct neighbors to make a human die
+
 		# zombie traits
-		self.overwhelmed_limit = 4 # how many human neighbors it takes to kill a zombie
-		self.overwhelmed_radius = 2 # how far from a zombie a human neighbor can be
+		self.overwhelmed_limit = 5 # how many human neighbors it takes to kill a zombie
+		self.overwhelmed_radius = 1 # how far from a zombie a human neighbor can be
 
 	def reasses(self,locations):
 		deltay = 0
 		deltax = 0
 
 		if self.status == 'human':
-			# look for zombies to figure out where to run away
+			# look for zombies
 			for searchy in range(-self.sightline,self.sightline+1):
 				for searchx in range(-self.sightline,self.sightline+1):
 					if [self.location[0] + searchy,self.location[1] + searchx, 2] in locations: #zombie
+						# check if it's close enough for infection
+						if abs(searchy) <= abs(self.infection_proximity) and abs(searchx) <= abs(self.infection_proximity):
+							infection_test = random.randint(0,100)
+							if infection_test < self.infection_odds:
+								self.status = 'zombie'
+
+						# check if he gets torn apart instead
+
+
+						# figure out where to run away
 						if searchy < 0:	#if it's somewhere above
 							deltay += 1
 						elif searchy > 0: #if it's somewhere below
@@ -30,17 +52,17 @@ class Agent:
 						if searchx < 0: #if it's to the left
 							deltax += 1
 						elif searchx > 0: #if it's somewhere to the right
-							deltax -= 1
-			# figure out which way to run:
-			if deltay > 0:
-				self.location[0] += 1
-			elif deltay < 0:
-				self.location[0] -= 1
+									deltax -= 1
+						# figure out which way to run:
+						if deltay > 0:
+							self.location[0] += 1
+						elif deltay < 0:
+							self.location[0] -= 1
 
-			if deltax > 0:
-				self.location[1] += 1
-			elif deltax < 0:
-				self.location[1] -= 1
+						if deltax > 0:
+							self.location[1] += 1
+						elif deltax < 0:
+							self.location[1] -= 1
 
 			randomizer_test = random.randint(0,100)
 			if randomizer_test < randomizer_odds:
@@ -91,6 +113,9 @@ def init_game(width, height, occupied_odds, zombie_odds):
 	return current
 
 def print_pop(population, height, width):
+	zombiepop = 0
+	humanpop = 0
+
 	# fill everything in with periods
 	for y in range(0,height):
 		for x in range(0,width):
@@ -105,10 +130,14 @@ def print_pop(population, height, width):
 	for agent in population:
 		if agent.status == 'human':
 			colorpair = 1
+			humanpop += 1
 		elif agent.status == 'zombie':
 			colorpair = 2
+			zombiepop += 1
 		elif agent.status == 'dead zombie':
 			colorpair = 3
+		elif agent.status == 'dead human':
+			colorpair = 4
 		locations.append([agent.location[0],agent.location[1],colorpair])
 
 	# parse the grid to print it
@@ -119,7 +148,18 @@ def print_pop(population, height, width):
 				print "%s: %d | %d type: %d" % (err, spot[0], spot[1],spot[2])
 				pass
 	pad.refresh(0,0, 2,2, myscreen.getmaxyx()[0]-1,myscreen.getmaxyx()[1]-1)
-	return locations
+
+	# print scores
+	scorepad.clear()
+	scorepad.addstr(1,1, "Humans: %d" % humanpop)
+	scorepad.addstr(2,1, "Zombies: %d" % zombiepop)
+	scorepad.refresh(0,0, 2,width+1, myscreen.getmaxyx()[0]-1,myscreen.getmaxyx()[1]-1)
+	
+	# If it's over:
+	if zombiepop == 0 or humanpop == 0:
+		end_game()
+	else:
+		return locations
 
 def nextgen(population,locations):
 	for agent in population:
@@ -137,7 +177,7 @@ if __name__ == '__main__':
 		height = int(sys.argv[2])
 
 	occupied_odds = 40
-	zombie_odds = 31
+	zombie_odds = 90
 
 	move_odds = 90 #odds that a zombie will move
 
@@ -147,12 +187,14 @@ if __name__ == '__main__':
 	locations = []
 	myscreen = curses.initscr()	#initialize the window
 	pad = curses.newpad(height, width)	# new pad
+	scorepad = curses.newpad(4,20)
 	curses.start_color()	# turn on color
 	curses.init_pair(1, 7, 7) # human color pair
 	curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_GREEN) # zombie color pair
 	curses.init_pair(3, curses.COLOR_BLACK, 10) # zombie color pair
 	curses.noecho()  # don't print keyboard output to screen
 	curses.cbreak()  # react to keypresses without waiting for 'enter'
+	curses.curs_set(0) # no blinking cursor
 
 	current = init_game(width, height, occupied_odds, zombie_odds)
 
