@@ -6,16 +6,23 @@ class Agent:
 	def __init__(self,status,y,x):
 		self.status = status
 		self.location = [y,x]
+
+		# human traits
 		self.sightline = 3
+
+		# zombie traits
+		self.overwhelmed_limit = 4 # how many human neighbors it takes to kill a zombie
+		self.overwhelmed_radius = 2 # how far from a zombie a human neighbor can be
 
 	def reasses(self,locations):
 		deltay = 0
 		deltax = 0
 
 		if self.status == 'human':
+			# look for zombies to figure out where to run away
 			for searchy in range(-self.sightline,self.sightline+1):
 				for searchx in range(-self.sightline,self.sightline+1):
-					if [self.location[0] + searchy,self.location[1] + searchx,2] in locations: #zombie
+					if [self.location[0] + searchy,self.location[1] + searchx, 2] in locations: #zombie
 						if searchy < 0:	#if it's somewhere above
 							deltay += 1
 						elif searchy > 0: #if it's somewhere below
@@ -34,16 +41,24 @@ class Agent:
 				self.location[1] += 1
 			elif deltax < 0:
 				self.location[1] -= 1
-		else:	# if it's a zombie already
-			move_test = random.randint(0,100)
-			if move_test < move_odds:
-				self.location[0] += random.randint(-1,1)
-				self.location[1] += random.randint(-1,1)
 
+			randomizer_test = random.randint(0,100)
+			if randomizer_test < randomizer_odds:
+				self.location[random.randint(0,1)] += random.randint(-1,1)
 
-		randomizer_test = random.randint(0,100)
-		if randomizer_test < randomizer_odds:
-			self.location[random.randint(0,1)] += random.randint(-1,1)
+		elif self.status == 'zombie':
+			neighbors = 0
+			for searchy in range(-self.overwhelmed_radius,self.overwhelmed_radius+1):
+				for searchx in range(-self.overwhelmed_radius,self.overwhelmed_radius+1):
+					if [self.location[0] + searchy,self.location[1] + searchx, 1] in locations: #humans
+						neighbors += 1
+			if neighbors >= self.overwhelmed_limit:
+				self.status = 'dead zombie'
+			else:
+				move_test = random.randint(0,100) #should it randomly move?
+				if move_test < move_odds:
+					self.location[0] += random.randint(-1,1)
+					self.location[1] += random.randint(-1,1)
 
 		#wraparound
 		if self.location[0] < 0:
@@ -90,14 +105,16 @@ def print_pop(population, height, width):
 	for agent in population:
 		if agent.status == 'human':
 			colorpair = 1
-		else:
+		elif agent.status == 'zombie':
 			colorpair = 2
+		elif agent.status == 'dead zombie':
+			colorpair = 3
 		locations.append([agent.location[0],agent.location[1],colorpair])
 
 	# parse the grid to print it
 		for spot in locations:
 			try:
-				pad.addstr(spot[0],spot[1], "#", curses.color_pair(spot[2]))
+				pad.addstr(spot[0],spot[1], "X", curses.color_pair(spot[2]))
 			except curses.error as err:
 				print "%s: %d | %d type: %d" % (err, spot[0], spot[1],spot[2])
 				pass
@@ -120,7 +137,7 @@ if __name__ == '__main__':
 		height = int(sys.argv[2])
 
 	occupied_odds = 40
-	zombie_odds = 1
+	zombie_odds = 31
 
 	move_odds = 90 #odds that a zombie will move
 
@@ -131,8 +148,9 @@ if __name__ == '__main__':
 	myscreen = curses.initscr()	#initialize the window
 	pad = curses.newpad(height, width)	# new pad
 	curses.start_color()	# turn on color
-	curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_WHITE) # set the human color pair
-	curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_GREEN) # set the zombie color pair
+	curses.init_pair(1, 7, 7) # human color pair
+	curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_GREEN) # zombie color pair
+	curses.init_pair(3, curses.COLOR_BLACK, 10) # zombie color pair
 	curses.noecho()  # don't print keyboard output to screen
 	curses.cbreak()  # react to keypresses without waiting for 'enter'
 
