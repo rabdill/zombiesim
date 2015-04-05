@@ -79,18 +79,26 @@ class Agent:
 			# if they're still alive, figure out which way to run:
 			if self.status == 'human':
 				if deltay > 0:
-					self.location[0] += 1
+					deltay = 1
 				elif deltay < 0:
-					self.location[0] -= 1
-
+					deltay -= -1
 				if deltax > 0:
-					self.location[1] += 1
+					deltax = 1
 				elif deltax < 0:
-					self.location[1] -= 1
+					deltax = -1
 
+				# throw in random movement:
 				randomizer_test = random.randint(0,100)
 				if randomizer_test < randomizer_odds:
-					self.location[random.randint(0,1)] += random.randint(-1,1)
+					if random.randint(0,1) > 0:
+						deltax += random.randint(-1,1)
+					else:
+						deltay += random.randint(-1,1)
+
+				# move, if the spot isn't occupied:
+				if [self.location[0]+deltay,self.location[1]+deltax,1] not in locations:
+					self.location[0] += deltay
+					self.location[1] += deltax
 
 		elif self.status == 'zombie':
 			neighbors = 0
@@ -104,7 +112,7 @@ class Agent:
 				move_test = random.randint(0,100) #should it randomly move?
 				if move_test < move_odds:
 					self.location[0] += random.randint(-self.speed,self.speed+1)
-					self.location[1] += random.randint(--self.speed,self.speed+1)
+					self.location[1] += random.randint(-self.speed,self.speed+1)
 
 		#wraparound
 		if self.location[0] < 0:
@@ -112,7 +120,7 @@ class Agent:
 		if self.location[1] < 0:
 			self.location[1] += width-1
 		if self.location[0] > height-1:
-				self.location[0] -= height-1
+			self.location[0] -= height-1
 		if self.location[1] > width-1:
 			self.location[1] -= width-1
 
@@ -180,7 +188,7 @@ def print_pop(population, height, width):
 			except curses.error as err:
 				print "%s: %d | %d type: %d" % (err, spot[0], spot[1],spot[2])
 				pass
-	pad.refresh(0,0, 2,2, myscreen.getmaxyx()[0]-1,myscreen.getmaxyx()[1]-1)
+	pad.refresh(0,0, 0,0, myscreen.getmaxyx()[0]-30,myscreen.getmaxyx()[1]-1)
 
 	# print scores
 	turned = init_humans - humans - deadhumans
@@ -192,17 +200,19 @@ def print_pop(population, height, width):
 
 	scorepad.addstr(4,1, "Zombies: %d" % zombies)
 	scorepad.addstr(5,3, "%d dead" % deadzombies)
-	scorepad.refresh(0,0, 2,width+5, myscreen.getmaxyx()[0]-1,myscreen.getmaxyx()[1]-1)
-	
+
 	# print locations
-	locationpad.clear()
-	printed = 0
+	printed = 7
 	for spot in locations:
 		if spot[2] == 1:
-			locationpad.addstr(printed,1,"%d: [%d, %d]" % (printed+1,spot[0],spot[1]))
+			#try:
+				#scorepad.addstr(printed,1,"[%d, %d]" % (spot[0],spot[1]))
+			#except curses.error as err:
+			#	print "coulnd't print at (%d, %d)" % (printed,1)
+			#	sys.exit(1)
 			printed += 1
-	locationpad.refresh(0,0,height+2,1, myscreen.getmaxyx()[0]-1,myscreen.getmaxyx()[1]-1)
 
+	scorepad.refresh(0,0, 0,myscreen.getmaxyx()[1]-30, myscreen.getmaxyx()[0]-1,myscreen.getmaxyx()[1]-1)
 
 	# If it's over:
 	if zombies == 0 or humans == 0:
@@ -226,18 +236,17 @@ if __name__ == '__main__':
 		width = int(sys.argv[2])
 
 	occupied_odds = 30
-	zombie_odds = 4
+	zombie_odds = 11
 
 	move_odds = 90 #odds that a zombie will move
 
-	randomizer_odds = 1 # odds that a move will randomly get knocked out of whack
+	randomizer_odds = 10 # odds that a human move will randomly get knocked out of whack
 
 	current = []
 	locations = []
 	myscreen = curses.initscr()	#initialize the window
 	pad = curses.newpad(height, width)	# new pad
-	scorepad = curses.newpad(10,25) # scoreboard
-	locationpad = curses.newpad(100,15)
+	scorepad = curses.newpad(999,25) # scoreboard
 
 	curses.start_color()	# turn on color
 	curses.init_pair(1, 7, 7) # human color pair
@@ -250,11 +259,11 @@ if __name__ == '__main__':
 
 	initialize = init_game(width, height, occupied_odds, zombie_odds)
 	current = initialize[0]
-	init_zombies = int(initialize[1])
-	init_humans = int(initialize[2])
+	init_zombies = int(initialize[1]) # how many zombies at start
+	init_humans = int(initialize[2]) # how many humans at start
 
 	pause = ''
 	while pause != "x":
 		locations = print_pop(current, height,width)
 		current = nextgen(current,locations)
-		pause = pad.getch()
+		#pause = pad.getch()
