@@ -192,8 +192,18 @@ def print_pop(population, height, width):
 
 	scorepad.addstr(4,1, "Zombies: %d" % zombies)
 	scorepad.addstr(5,3, "%d dead" % deadzombies)
-	scorepad.refresh(0,0, 2,width+1, myscreen.getmaxyx()[0]-1,myscreen.getmaxyx()[1]-1)
+	scorepad.refresh(0,0, 2,width+5, myscreen.getmaxyx()[0]-1,myscreen.getmaxyx()[1]-1)
 	
+	# print locations
+	locationpad.clear()
+	printed = 0
+	for spot in locations:
+		if spot[2] == 1:
+			locationpad.addstr(printed,1,"%d: [%d, %d]" % (printed+1,spot[0],spot[1]))
+			printed += 1
+	locationpad.refresh(0,0,height+2,1, myscreen.getmaxyx()[0]-1,myscreen.getmaxyx()[1]-1)
+
+
 	# If it's over:
 	if zombies == 0 or humans == 0:
 		end_game()
@@ -215,18 +225,20 @@ if __name__ == '__main__':
 		height = int(sys.argv[1])
 		width = int(sys.argv[2])
 
-	occupied_odds = 40
-	zombie_odds = 10
+	occupied_odds = 30
+	zombie_odds = 4
 
 	move_odds = 90 #odds that a zombie will move
 
-	randomizer_odds = 31 #odds that a move will randomly get knocked out of whack
+	randomizer_odds = 1 # odds that a move will randomly get knocked out of whack
 
 	current = []
 	locations = []
 	myscreen = curses.initscr()	#initialize the window
 	pad = curses.newpad(height, width)	# new pad
 	scorepad = curses.newpad(10,25) # scoreboard
+	locationpad = curses.newpad(100,15)
+
 	curses.start_color()	# turn on color
 	curses.init_pair(1, 7, 7) # human color pair
 	curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_GREEN) # zombie color pair
@@ -245,3 +257,4 @@ if __name__ == '__main__':
 	while pause != "x":
 		locations = print_pop(current, height,width)
 		current = nextgen(current,locations)
+		pause = pad.getch()
